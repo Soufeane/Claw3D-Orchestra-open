@@ -1,6 +1,6 @@
 # État du projet
 
-Dernière mise à jour : 2026-11-06. Branche initiale : `main`, dépôt initialement limité à un README et un commit.
+Dernière mise à jour : 2026-11-06. Tranche T1 préparée sur `feature/t1-versioned-migrations`, tests réussis; non fusionnée et aucun changement sur `main`.
 
 ## Livré dans cette tranche
 
@@ -18,4 +18,6 @@ Il n’y a pas de véritable routeur de modèles, d’exécution d’agent, d’
 
 ## Vérification de cette livraison
 
-Les résultats effectifs des tests, du smoke test HTTP, du scan de secrets et du build sont consignés dans le rapport de livraison de session et dans la CI à venir; ne pas considérer une vérification comme réussie avant son exécution.
+Le runner versionné est livré dans cette tranche de travail : table `schema_version`, scripts SQL numérotés, sauvegarde SQLite avant chaque migration, checksum des migrations et arrêt du démarrage si une migration échoue. Le premier script est additif et compatible avec les bases produites par le schéma inline précédent.
+
+La suite de tests de cette tranche vérifie sur des fichiers temporaires la migration à froid, la préservation d’une ligne d’une base héritée, le contenu de la sauvegarde antérieure à migration, le rollback/échec startup et l’immutabilité des migrations déjà appliquées. Ne pas utiliser la base locale `data/claw3d.sqlite3` dans les tests.

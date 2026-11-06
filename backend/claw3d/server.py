@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from .core import Store, utcnow
 
-STORE = Store()
+STORE = None
 SESSION_SECONDS = 8 * 60 * 60
 
 def _hash(s): return hashlib.sha256(s.encode()).hexdigest()
@@ -116,6 +116,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self): self.route()
 
 def main():
+    global STORE
+    STORE = Store()
     host=os.getenv("CLAW3D_HOST","127.0.0.1"); port=int(os.getenv("CLAW3D_PORT","8000"))
     print(f"Claw3D Orchestra local server: http://{host}:{port}")
     ThreadingHTTPServer((host,port),Handler).serve_forever()
