@@ -17,7 +17,7 @@ Vérifications sans authentification : `GET /api/health` et `GET /api/ready`. Le
 
 ## Portée de la première tranche
 
-Opérationnels : serveur local, schéma SQLite créé de façon additive, session propriétaire, registre de sept rôles bots, six Skills versionnés, missions avec transitions contrôlées et événements d’audit, préparations de réunion, statut explicite des fournisseurs, interface responsive et endpoints de santé/préparation.
+Opérationnels : serveur local, schéma SQLite créé de façon additive, session propriétaire, registre de sept rôles bots, six Skills versionnés, missions avec transitions contrôlées et événements d’audit, préparations de réunion, statut explicite des fournisseurs, interface responsive et endpoints de santé/préparation. Les missions peuvent être préparées ou suspendues, mais aucune action ne prétend lancer un bot : la transition vers `RUNNING` est bloquée tant que le moteur réel n’est pas livré.
 
 Non implémentés et désactivés : exécution réelle des modèles, planification/délégation automatique, mises à jour de fournisseur depuis l’interface, comptabilisation des coûts réels, modification du plafond via UI, approbations détaillées, mémoire longue durée et évaluation des performances. Le tableau de bord ne prétend pas que ces fonctions existent. Le statut `CONFIGURED` confirme seulement la présence d’une variable ; il ne valide pas la clé chez le fournisseur. Aucun appel réseau externe n’est implémenté.
 

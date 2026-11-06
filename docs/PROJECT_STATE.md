@@ -9,6 +9,7 @@ Dernière mise à jour : 2026-11-06. Branche initiale : `main`, dépôt initiale
 - Authentification propriétaire côté serveur basée sur `CLAW3D_ADMIN_PASSWORD` (minimum 12 caractères), cookie HttpOnly/SameSite, en-tête anti-CSRF pour les écritures. Les routes health et ready restent publiques sans mutation.
 - Sept rôles internes chargés dans le registre, six Skills versionnés et trois fournisseurs configurables.
 - Création et transitions limitées des missions, création de préparations de réunion en attente et audit de ces actions.
+- Les missions peuvent être enregistrées, planifiées, suspendues et reprises vers la planification. La transition vers `RUNNING` est refusée tant que le moteur d’exécution n’existe pas.
 - Aucun appel fournisseur; aucune simulation d’activité. Une variable présente indique seulement `CONFIGURED`, sans test réseau.
 
 ## Limites explicites

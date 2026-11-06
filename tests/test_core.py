@@ -13,6 +13,11 @@ class CoreTests(unittest.TestCase):
         m=self.store.create_mission({"title":"Test","description":"Mission test"})
         with self.assertRaisesRegex(ValueError,"not allowed"):
             self.store.transition(m["id"],"COMPLETED")
+    def test_execution_is_blocked_without_engine(self):
+        m=self.store.create_mission({"title":"Test","description":"Mission test"})
+        self.store.transition(m["id"],"PLANNED")
+        with self.assertRaisesRegex(ValueError,"engine is not implemented"):
+            self.store.transition(m["id"],"RUNNING")
     def test_completed_is_terminal(self): self.assertEqual(TRANSITIONS["COMPLETED"],set())
     def test_budget_default_and_circuit_breaker(self):
         self.assertEqual(self.store.budget(),{"daily_limit_cents":500,"spent_today_cents":0,"circuit_breaker":False})

@@ -96,6 +96,7 @@ class Store:
             return d
     def transition(self, mid, status, actor="human"):
         if status not in STATUSES: raise ValueError("unknown status")
+        if status == "RUNNING": raise ValueError("execution engine is not implemented; mission remains queued")
         with self.connect() as c:
             row=c.execute("SELECT status FROM missions WHERE id=?",(mid,)).fetchone()
             if not row: return None
