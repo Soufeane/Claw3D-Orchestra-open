@@ -1,5 +1,5 @@
 # Prochaine tâche prioritaire
 
-Construire et tester la couche d’exécution contrôlée (après durcissement auth/API) : abstraction de fournisseur, validation réseau/clé sans afficher les secrets, réponse `WAITING_FOR_PROVIDER` tant qu’aucun fournisseur n’est configuré, suivi des dépenses atomique et coupe-circuit appliqué avant chaque appel réel. Toute action externe doit rester sans effet tant qu’elle n’a pas l’approbation humaine requise.
+Prochaine tranche candidate (T2) : ajouter une CI GitHub Actions minimale qui exécute `python3 -m unittest discover -s tests -v` sur chaque pull request et lance un scan de secrets. Cette tâche est notée, pas commencée dans T1.
 
-Avant d’ajouter les fournisseurs, compléter les tests HTTP d’authentification et d’accès, tester cookie/anti-CSRF, les transitions complètes, ready avec base inaccessible, et sécurité anti-fuite de secrets. Ajouter une CI et choisir une stratégie de migrations versionnées sans jamais écraser la base existante.
+Les tranches ultérieures, à ne démarrer qu’après accord, sont T3 (tests HTTP de sécurité), T4 (abstraction fournisseur factice), T5 (dépenses atomiques et coupe-circuit), T6 (approbations liées à l’action), puis T7 (validation réseau uniquement sur ordre explicite). Ne pas appeler un vrai fournisseur ni effectuer de validation réelle de clé.

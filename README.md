@@ -11,7 +11,7 @@ export CLAW3D_ADMIN_PASSWORD='choisir-un-secret-local-de-16-caracteres-ou-plus'
 python3 -m backend.claw3d.server
 ```
 
-Ouvrir `http://127.0.0.1:8000`. L’application crée `data/claw3d.sqlite3` au premier lancement. `CLAW3D_DB_PATH` permet de choisir un autre chemin SQLite. Pour un accès HTTPS derrière un proxy TLS de confiance, définissez `CLAW3D_COOKIE_SECURE=1` et n’exposez pas directement le serveur HTTP à Internet.
+Ouvrir `http://127.0.0.1:8000`. Au démarrage, l’application applique les migrations SQLite numérotées et crée une copie de sauvegarde avant chacune. `CLAW3D_DB_PATH` permet de choisir un autre chemin SQLite. Les migrations échouées bloquent le démarrage; les données existantes ne sont pas réinitialisées. Pour un accès HTTPS derrière un proxy TLS de confiance, définissez `CLAW3D_COOKIE_SECURE=1` et n’exposez pas directement le serveur HTTP à Internet.
 
 Vérifications sans authentification : `GET /api/health` et `GET /api/ready`. Les autres routes API exigent une session propriétaire. Configurez les clés fournisseur uniquement dans l’environnement du processus ; elles ne sont ni affichées ni journalisées.
 

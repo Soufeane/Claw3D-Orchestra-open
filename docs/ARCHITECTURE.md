@@ -2,11 +2,12 @@
 
 ## Principes
 
-Un monolithe modulaire est retenu pour garder le cœur indépendant de l’interface et éviter les microservices. La première version utilise Python standard library et SQLite afin de s’exécuter localement sans dépendance externe. Les écritures de schéma sont additives (`CREATE TABLE IF NOT EXISTS`); aucune commande de remise à zéro n’est fournie.
+Un monolithe modulaire est retenu pour garder le cœur indépendant de l’interface et éviter les microservices. La première version utilise Python standard library et SQLite afin de s’exécuter localement sans dépendance externe. Le schéma est géré par des migrations SQL numérotées et additives (`CREATE TABLE IF NOT EXISTS`). Pour chaque migration, le runner obtient d’abord un verrou d’écriture (`BEGIN IMMEDIATE`), puis sauvegarde via une connexion SQLite de lecture indépendante; cela bloque les écritures concurrentes entre le snapshot et l’application. Les backups fichier sont en mode `0600`; une restauration reste une opération explicite de l’opérateur. Les bases `:memory:` sont refusées pour une migration en attente, car elles ne permettent pas de backup durable. Tout échec bloque le démarrage. Aucun reset de base n’est fourni.
 
 ## Modules
 
 - `backend/claw3d/core.py` : persistance, registre initial, événements, budget, création et transitions des missions.
+- `backend/claw3d/migrations.py` et `backend/claw3d/migrations/` : séquencement, vérification par checksum et sauvegardes avant migration.
 - `backend/claw3d/server.py` : transport HTTP, sessions propriétaire, contrôle anti-CSRF, routes JSON, service statique.
 - `frontend/static/` : console HTML/CSS/JS same-origin alimentée par API; pas de fausses données.
 - `engine/{bots,skills,router,workflows,memory}/` : frontières prévues pour déplacer le domaine vers des modules spécialisés sans dépendance à l’UI.
