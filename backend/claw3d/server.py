@@ -1,6 +1,6 @@
 """Small same-origin JSON server with server-side authentication."""
 from __future__ import annotations
-import hashlib, hmac, json, os, re, secrets, time
+import hashlib, hmac, json, os, re, secrets, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
 from pathlib import Path
@@ -9,6 +9,14 @@ from .core import Store, utcnow
 
 STORE = Store()
 SESSION_SECONDS = 8 * 60 * 60
+MAX_BODY_BYTES = 65536
+LOGIN_WINDOW_SECONDS = 60
+LOGIN_MAX_FAILURES = 5
+_LOGIN_LOCK = threading.Lock()
+_LOGIN_FAILURES = {}
+
+class RequestTooLarge(ValueError):
+    pass
 
 def _hash(s): return hashlib.sha256(s.encode()).hexdigest()
 def _secure(): return os.getenv("CLAW3D_COOKIE_SECURE", "0").lower() in {"1","true","yes"}
@@ -26,13 +34,42 @@ class Handler(BaseHTTPRequestHandler):
         for k,v in (headers or {}).items(): self.send_header(k,v)
         self.end_headers(); self.wfile.write(body)
     def body(self):
+        if hasattr(self,"_parsed_body"):
+            return self._parsed_body
         try:
-            n=int(self.headers.get("Content-Length","0"))
-            if n > 65536: raise ValueError("request body too large")
-            obj=json.loads(self.rfile.read(n) or b"{}")
+            if self.headers.get("Transfer-Encoding"):
+                raise ValueError("Transfer-Encoding is not supported")
+            raw_length=self.headers.get("Content-Length","0")
+            if not raw_length.isdecimal():
+                raise ValueError("invalid Content-Length")
+            n=int(raw_length)
+            if n > MAX_BODY_BYTES:
+                raise RequestTooLarge("request body too large")
+            if n and "application/json" not in self.headers.get("Content-Type","").lower():
+                raise ValueError("Content-Type must be application/json")
+            raw=self.rfile.read(n)
+            if len(raw)!=n:
+                raise ValueError("incomplete request body")
+            obj=json.loads(raw or b"{}")
             if not isinstance(obj,dict): raise ValueError("JSON object required")
+            self._parsed_body=obj
             return obj
-        except (ValueError, json.JSONDecodeError) as e: raise ValueError(str(e))
+        except RequestTooLarge:
+            raise
+        except (ValueError, json.JSONDecodeError) as e:
+            raise ValueError("malformed JSON request") from e
+    def login_limited(self):
+        now=time.monotonic(); key=self.client_address[0]
+        with _LOGIN_LOCK:
+            attempts=[stamp for stamp in _LOGIN_FAILURES.get(key,[]) if now-stamp<LOGIN_WINDOW_SECONDS]
+            _LOGIN_FAILURES[key]=attempts
+            return len(attempts)>=LOGIN_MAX_FAILURES
+    def record_login_failure(self):
+        now=time.monotonic(); key=self.client_address[0]
+        with _LOGIN_LOCK:
+            attempts=[stamp for stamp in _LOGIN_FAILURES.get(key,[]) if now-stamp<LOGIN_WINDOW_SECONDS]
+            attempts.append(now)
+            _LOGIN_FAILURES[key]=attempts
     def session_hash(self):
         cookie=SimpleCookie()
         try: cookie.load(self.headers.get("Cookie","")); token=cookie.get("claw3d_session").value
@@ -46,15 +83,25 @@ class Handler(BaseHTTPRequestHandler):
         p=urlparse(self.path).path
         if p=="/api/health" and self.command=="GET": return self.send_json(200,{"status":"ok","time":utcnow()})
         if p=="/api/ready" and self.command=="GET":
-            providers=STORE.providers()
+            try:
+                with STORE.connect() as c:
+                    c.execute("SELECT 1").fetchone()
+                providers=STORE.providers()
+            except Exception:
+                return self.send_json(503,{"status":"not_ready","database":"unavailable","external_calls_enabled":False})
             return self.send_json(200,{"status":"ready","database":"ok","configured_providers":sum(x["status"]=="CONFIGURED" for x in providers),"external_calls_enabled":False})
         if p=="/api/auth/login" and self.command=="POST":
+            if self.login_limited(): return self.send_json(429,{"error":"Trop de tentatives. Réessayez plus tard."},{"Retry-After":str(LOGIN_WINDOW_SECONDS)})
             expected=os.getenv("CLAW3D_ADMIN_PASSWORD","")
             if len(expected)<12: return self.send_json(503,{"error":"Authentication unavailable: configure a 12+ character CLAW3D_ADMIN_PASSWORD in the server environment."})
-            password=self.body().get("password","")
+            try: password=self.body().get("password","")
+            except RequestTooLarge: return self.send_json(413,{"error":"Corps de requête trop volumineux."})
+            except ValueError: return self.send_json(400,{"error":"Requête JSON invalide."})
             if not isinstance(password,str) or not hmac.compare_digest(_hash(password),_hash(expected)):
+                self.record_login_failure()
                 STORE.event("anonymous","auth.login","session","",result="DENIED",error="invalid credentials")
                 return self.send_json(401,{"error":"Identifiants invalides."})
+            with _LOGIN_LOCK: _LOGIN_FAILURES.pop(self.client_address[0],None)
             token=secrets.token_urlsafe(32); expiry=int(time.time())+SESSION_SECONDS
             from datetime import datetime, timezone
             expires=datetime.fromtimestamp(expiry,timezone.utc).isoformat(timespec="seconds")
@@ -64,8 +111,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200,{"authenticated":True},{"Set-Cookie":cookie})
         if p=="/api/auth/logout" and self.command=="POST":
             sh=self.session_hash()
-            if sh:
-                with STORE.connect() as c: c.execute("DELETE FROM sessions WHERE token_hash=?",(sh,))
+            if not sh: return self.send_json(401,{"error":"Authentification requise."})
+            if self.headers.get("X-Claw3D-Request")!="1": return self.send_json(403,{"error":"En-tête anti-CSRF requis."})
+            with STORE.connect() as c: c.execute("DELETE FROM sessions WHERE token_hash=?",(sh,))
             return self.send_json(200,{"authenticated":False},{"Set-Cookie":"claw3d_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" + ("; Secure" if _secure() else "")})
         if p.startswith("/api/"):
             if not self.authorized(): return self.send_json(401,{"error":"Authentification requise."})
@@ -93,12 +141,14 @@ class Handler(BaseHTTPRequestHandler):
         if p=="/api/missions" and self.command=="POST":
             try:
                 item=STORE.create_mission(self.body()); return self.send_json(201,item)
+            except RequestTooLarge: return self.send_json(413,{"error":"Corps de requête trop volumineux."})
             except ValueError as e: return self.send_json(400,{"error":str(e)})
         match=re.fullmatch(r"/api/missions/([A-Za-z0-9_-]+)(?:/status)?",p)
         if match and p.endswith("/status") and self.command=="POST":
             try:
                 item=STORE.transition(match.group(1),self.body().get("status",""))
                 return self.send_json(404,{"error":"Mission introuvable."}) if item is None else self.send_json(200,item)
+            except RequestTooLarge: return self.send_json(413,{"error":"Corps de requête trop volumineux."})
             except ValueError as e: return self.send_json(400,{"error":str(e)})
         if p=="/api/events" and self.command=="GET":
             with STORE.connect() as c: return self.send_json(200,{"items":[dict(r) for r in c.execute("SELECT * FROM events ORDER BY created_at DESC LIMIT 100")]})
@@ -110,6 +160,7 @@ class Handler(BaseHTTPRequestHandler):
                 with STORE.connect() as c: c.execute("INSERT INTO meetings VALUES (?,?,?,?,?)",(mid,topic.strip(),json.dumps(b.get("participants",[])),"WAITING_FOR_PROVIDER",ts))
                 STORE.event("human","meeting.created","meeting",mid,"WAITING_FOR_PROVIDER")
                 return self.send_json(201,{"id":mid,"topic":topic.strip(),"status":"WAITING_FOR_PROVIDER","participants":b.get("participants",[]),"created_at":ts})
+            except RequestTooLarge: return self.send_json(413,{"error":"Corps de requête trop volumineux."})
             except ValueError as e: return self.send_json(400,{"error":str(e)})
         return self.send_json(404,{"error":"Not found"})
     def do_GET(self): self.route()
