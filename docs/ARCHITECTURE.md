@@ -8,6 +8,9 @@ Un monolithe modulaire est retenu pour garder le cœur indépendant de l’inter
 
 - `backend/claw3d/core.py` : persistance, registre initial, événements, budget, création et transitions des missions.
 - `backend/claw3d/migrations.py` et `backend/claw3d/migrations/` : séquencement, vérification par checksum et sauvegardes avant migration.
+- `backend/claw3d/providers.py` : contrat indépendant des fournisseurs, adaptateur fixture local et placeholder `WAITING_FOR_PROVIDER`; aucun SDK ni réseau.
+- `backend/claw3d/costs.py` : réservations et dépenses transactionnelles, scopes organisation/mission/agent, idempotence et coupe-circuit.
+- `backend/claw3d/approvals.py` : demandes liées au hash du payload canonique, expiration, décision humaine et consommation à usage unique.
 - `backend/claw3d/server.py` : transport HTTP, sessions propriétaire, contrôle anti-CSRF, routes JSON, service statique.
 - `frontend/static/` : console HTML/CSS/JS same-origin alimentée par API; pas de fausses données.
 - `engine/{bots,skills,router,workflows,memory}/` : frontières prévues pour déplacer le domaine vers des modules spécialisés sans dépendance à l’UI.
@@ -19,4 +22,4 @@ Le navigateur appelle le backend same-origin. Toute route métier exige une sess
 
 ## Schéma actuel
 
-`bots`, `skills`, `providers`, `models`, `missions`, `tasks`, `departments`, `events`, `settings`, `budgets`, `spend`, `decisions`, `meetings`, `approvals`, `users` et `sessions`. Plusieurs tables fournissent seulement un schéma extensible et n’ont pas encore d’API métier complète. L’authentification représente actuellement l’unique propriétaire local configuré via environnement; une gestion multi-utilisateur reste future.
+`bots`, `skills`, `providers`, `models`, `missions`, `tasks`, `departments`, `events`, `settings`, `budgets`, `spend`, `decisions`, `meetings`, `approvals`, `users`, `sessions`, `cost_reservations` et `approval_requests`. La migration 0002 est additive, empilée explicitement sur T1. Les nouveaux modules ne sont pas câblés aux routes, à un Scheduler ou à un exécuteur; ce sont des primitives de domaine testées. L’authentification représente actuellement l’unique propriétaire local configuré via environnement; une gestion multi-utilisateur reste future.

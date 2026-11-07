@@ -17,9 +17,9 @@ Vérifications sans authentification : `GET /api/health` et `GET /api/ready`. Le
 
 ## Portée de la première tranche
 
-Opérationnels : serveur local, schéma SQLite créé de façon additive, session propriétaire, registre de sept rôles bots, six Skills versionnés, missions avec transitions contrôlées et événements d’audit, préparations de réunion, statut explicite des fournisseurs, interface responsive et endpoints de santé/préparation. Les missions peuvent être préparées ou suspendues, mais aucune action ne prétend lancer un bot : la transition vers `RUNNING` est bloquée tant que le moteur réel n’est pas livré.
+Opérationnels dans le runtime existant : serveur local, schéma SQLite créé de façon additive, session propriétaire, registre de sept rôles bots, six Skills versionnés, missions avec transitions contrôlées et événements d’audit, préparations de réunion, statut explicite des fournisseurs, interface responsive et endpoints de santé/préparation. Les missions peuvent être préparées ou suspendues, mais aucune action ne prétend lancer un bot : la transition vers `RUNNING` est bloquée tant que le moteur réel n’est pas livré.
 
-Non implémentés et désactivés : exécution réelle des modèles, planification/délégation automatique, mises à jour de fournisseur depuis l’interface, comptabilisation des coûts réels, modification du plafond via UI, approbations détaillées, mémoire longue durée et évaluation des performances. Le tableau de bord ne prétend pas que ces fonctions existent. Le statut `CONFIGURED` confirme seulement la présence d’une variable ; il ne valide pas la clé chez le fournisseur. Aucun appel réseau externe n’est implémenté.
+Sur la branche de contrôle T4-T6, des primitives backend sont préparées : contrat fournisseur avec fixture locale déterministe clairement étiquetée, gestion atomique des réservations/budgets et approbations humaines liées au hash du payload. Elles ne sont pas encore connectées à l’interface, à l’API, aux missions ou à un exécuteur; elles ne rendent pas une action opérationnelle. Aucun coût de fournisseur réel n’est mesuré. Le statut `CONFIGURED` confirme seulement la présence d’une variable; il ne valide pas la clé. Aucun appel réseau externe n’est implémenté.
 
 DeepSeek (`DEEPSEEK_API_KEY`), Grok (`GROK_API_KEY`) et Groq (`GROQ_API_KEY`) restent `WAITING_FOR_API_KEY` si la variable correspondante est absente.
 
@@ -29,4 +29,4 @@ DeepSeek (`DEEPSEEK_API_KEY`), Grok (`GROK_API_KEY`) et Groq (`GROQ_API_KEY`) re
 python3 -m unittest discover -s tests -v
 ```
 
-Voir [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) et [`docs/NEXT_TASK.md`](docs/NEXT_TASK.md) pour l’état précis.
+Voir [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/CONTROL_FOUNDATIONS.md`](docs/CONTROL_FOUNDATIONS.md) et [`docs/NEXT_TASK.md`](docs/NEXT_TASK.md) pour l’état précis. T4-T6 est explicitement empilée sur la PR T1 jusqu’à son intégration.

@@ -15,3 +15,7 @@ Un mot de passe propriétaire fort est injecté au démarrage et n’est pas sto
 ## 2026-11-06 — données non fictives
 
 Les rôles bots et Skills sont des entrées de registre, non des processus actifs. Les missions créées par l’utilisateur sont persistées et aucune sortie de modèle n’est fabriquée.
+
+## 2026-11-07 — primitives de contrôle isolées avant l’exécution
+
+Le contrat fournisseur possède seulement une fixture locale déterministe et un placeholder `WAITING_FOR_PROVIDER`; aucun SDK ni réseau n’est autorisé dans cette étape. Les budgets et approbations sont des primitives SQLite transactionnelles, pas encore des intercepteurs obligatoires d’une action. Les montants fixtures et opérateur restent étiquetés et ne sont jamais présentés comme des coûts de fournisseur mesurés. La migration 0002 est additive et la livraison est empilée explicitement sur la PR T1, car elle exige son runner versionné.
