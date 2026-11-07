@@ -16,7 +16,7 @@ class MigrationTests(unittest.TestCase):
     def test_fresh_database_gets_version_and_backup(self):
         store=Store(str(self.db_path))
         with store.connect() as conn:
-            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],1)
+            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],2)
             self.assertIsNotNone(conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='missions'").fetchone())
         backups=list(self.root.glob("case.sqlite3.backup-v0001-*.sqlite3"))
         self.assertEqual(len(backups),1)
@@ -32,7 +32,7 @@ class MigrationTests(unittest.TestCase):
         with store.connect() as conn:
             row=conn.execute("SELECT id,title,description FROM missions WHERE id='mis_keep'").fetchone()
             self.assertEqual(tuple(row),("mis_keep","Keep this row","legacy data"))
-            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],1)
+            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],2)
         backups=list(self.root.glob("case.sqlite3.backup-v0001-*.sqlite3"))
         self.assertEqual(len(backups),1)
         with sqlite3.connect(backups[0]) as backup:
@@ -42,6 +42,44 @@ class MigrationTests(unittest.TestCase):
         restored.write_bytes(backups[0].read_bytes())
         with sqlite3.connect(restored) as recovered:
             self.assertEqual(recovered.execute("SELECT title FROM missions WHERE id='mis_keep'").fetchone()[0],"Keep this row")
+
+    def test_v1_to_v2_control_migration_preserves_rows_and_backs_up_prechange_state(self):
+        v1_dir=self.root/"v1_migrations"
+        v1_dir.mkdir()
+        (v1_dir/"0001_foundation.sql").write_bytes((migrations.MIGRATIONS_DIR/"0001_foundation.sql").read_bytes())
+        old_store=Store(str(self.db_path),migrations_dir=v1_dir)
+        old_store.create_mission({"title":"Retain through v2","description":"existing data"})
+        with old_store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],1)
+        new_store=Store(str(self.db_path))
+        with new_store.connect() as conn:
+            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],2)
+            self.assertEqual(conn.execute("SELECT title FROM missions WHERE title='Retain through v2'").fetchone()[0],"Retain through v2")
+            self.assertIsNotNone(conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='cost_reservations'").fetchone())
+            self.assertIsNotNone(conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='approval_requests'").fetchone())
+        backups=list(self.root.glob("case.sqlite3.backup-v0002-*.sqlite3"))
+        self.assertEqual(len(backups),1)
+        with sqlite3.connect(backups[0]) as backup:
+            self.assertEqual(backup.execute("SELECT title FROM missions WHERE title='Retain through v2'").fetchone()[0],"Retain through v2")
+            self.assertIsNone(backup.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='cost_reservations'").fetchone())
+
+    def test_failed_v2_control_migration_rolls_back_without_losing_v1_data(self):
+        v1_dir=self.root/"valid_v1"
+        v1_dir.mkdir()
+        (v1_dir/"0001_foundation.sql").write_bytes((migrations.MIGRATIONS_DIR/"0001_foundation.sql").read_bytes())
+        old_store=Store(str(self.db_path),migrations_dir=v1_dir)
+        old_store.create_mission({"title":"Must survive failed v2","description":"legacy"})
+        broken_dir=self.root/"broken_v2"
+        broken_dir.mkdir()
+        (broken_dir/"0001_foundation.sql").write_bytes((v1_dir/"0001_foundation.sql").read_bytes())
+        (broken_dir/"0002_broken.sql").write_text("CREATE TABLE partial_v2 (id TEXT);\nNOT VALID SQL;\n",encoding="utf-8")
+        with self.assertRaisesRegex(MigrationError,"startup aborted"):
+            Store(str(self.db_path),migrations_dir=broken_dir)
+        with sqlite3.connect(self.db_path) as conn:
+            self.assertEqual(conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0],1)
+            self.assertEqual(conn.execute("SELECT title FROM missions WHERE title='Must survive failed v2'").fetchone()[0],"Must survive failed v2")
+            self.assertIsNone(conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='partial_v2'").fetchone())
+        self.assertEqual(len(list(self.root.glob("case.sqlite3.backup-v0002-*.sqlite3"))),1)
     def test_migration_failure_rolls_back_and_startup_fails(self):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("CREATE TABLE preserved (value TEXT NOT NULL)")
@@ -60,6 +98,7 @@ class MigrationTests(unittest.TestCase):
         migration_dir=self.root/"different"
         migration_dir.mkdir()
         (migration_dir/"0001_foundation.sql").write_text("-- changed",encoding="utf-8")
+        (migration_dir/"0002_control_foundations.sql").write_bytes((migrations.MIGRATIONS_DIR/"0002_control_foundations.sql").read_bytes())
         conn=sqlite3.connect(self.db_path)
         try:
             with self.assertRaisesRegex(MigrationError,"checksum mismatch"):
