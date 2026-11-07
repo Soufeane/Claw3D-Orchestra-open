@@ -10,7 +10,7 @@ Aucun département métier, Scheduler, Workflow Engine, Agent Runtime, appel fou
 
 `backend/claw3d/providers.py` définit `ProviderAdapter`, `ProviderAvailability`, `ProviderRequest`, `CostEstimate`, `ProviderResponse` et les erreurs typées. `WaitingProvider` reste `WAITING_FOR_PROVIDER` et refuse toute préparation ou exécution. `FixtureProvider` fonctionne localement, renvoie une réponse fixe marquée `LOCAL_FIXTURE`, n’utilise aucun réseau et présente un coût de fixture nul `FIXTURE_ZERO_COST`. Son statut `FIXTURE_ONLY` n’est pas un statut de fournisseur opérationnel.
 
-Le contrat de `execute` permet de tester les appels futurs, mais la seule implémentation fournie est la fixture locale. Annulation retourne `False`, car la fixture synchrone n’a aucune tâche réelle à arrêter.
+Le contrat de `execute` permet de tester les appels futurs, mais la seule implémentation fournie est la fixture locale, destinée aux tests et non enregistrée automatiquement dans le serveur. La classe reste importable par du code; son résultat et sa disponibilité portent des marqueurs explicites de fixture et `operational=False`. Annulation retourne `False`, car la fixture synchrone n’a aucune tâche réelle à arrêter.
 
 ## T5 — coûts et budgets
 

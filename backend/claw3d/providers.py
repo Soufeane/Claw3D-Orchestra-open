@@ -86,7 +86,7 @@ class WaitingProvider:
 
 
 class FixtureProvider:
-    """Deterministic test fixture. Available to tests only; never a live provider."""
+    """Deterministic local fixture intended for tests; never a live provider."""
 
     contract_version = "1"
 

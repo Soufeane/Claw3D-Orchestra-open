@@ -10,8 +10,8 @@ Dernière mise à jour : 2026-11-07. Cette branche `feature/t4-t6-control-founda
 - Sept rôles internes chargés dans le registre, six Skills versionnés et trois fournisseurs configurables.
 - Création et transitions limitées des missions, création de préparations de réunion en attente et audit de ces actions.
 - Les missions peuvent être enregistrées, planifiées, suspendues et reprises vers la planification. La transition vers `RUNNING` est refusée tant que le moteur d’exécution n’existe pas.
-- Aucun appel fournisseur ni simulation de bot. La seule réponse synthétique est produite par la fixture T4, marquée `LOCAL_FIXTURE` et réservée aux tests. Une variable présente indique seulement `CONFIGURED`, sans test réseau.
-- T4 : contrats fournisseur, `WaitingProvider` et fixture locale déterministe `FixtureProvider`; fixture non opérationnelle et sans réseau.
+- Aucun appel fournisseur ni simulation de bot. La seule réponse synthétique est produite par la fixture T4, marquée `LOCAL_FIXTURE` et destinée aux tests. Une variable présente indique seulement `CONFIGURED`, sans test réseau.
+- T4 : contrats fournisseur, `WaitingProvider` et fixture locale déterministe `FixtureProvider`; fixture non opérationnelle, non enregistrée automatiquement et sans réseau.
 - T5 : primitive `CostManager` avec budgets journaliers organisation/mission/agent, réservation idempotente, consommation simulée/opérateur, libération, audit et coupe-circuit atomiques.
 - T6 : primitive `ApprovalEngine` liée à mission, requester, action, hash SHA-256 du payload canonique et coût, avec expiration, décision, consommation unique et journalisation sans payload brut.
 - Migration 0002 additive pour `cost_reservations` et `approval_requests`; aucun effacement ou remplacement de données.
