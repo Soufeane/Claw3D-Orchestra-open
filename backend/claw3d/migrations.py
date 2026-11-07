@@ -1,6 +1,7 @@
 """Additive, checksummed SQLite migrations with a pre-migration backup."""
 from __future__ import annotations
 import hashlib
+import os
 import re
 import sqlite3
 import time
@@ -33,17 +34,29 @@ def _backup(conn: sqlite3.Connection, database_path: Path, version: int) -> Path
         raise MigrationError("file-backed SQLite database required for pre-migration backups")
     backup_path=Path(f"{database_path}.backup-v{version:04d}-{time.time_ns()}.sqlite3")
     backup_path.parent.mkdir(parents=True,exist_ok=True)
+    # Create the backup with owner-only permissions; it may contain private data.
+    fd=os.open(backup_path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+    os.close(fd)
     target=sqlite3.connect(backup_path)
+    source=None
     try:
-        conn.backup(target)
+        # conn holds BEGIN IMMEDIATE, preventing a writer from changing the
+        # source between the snapshot and the migration. Use a separate reader:
+        # backing up from the same connection while it owns a write transaction
+        # can wait indefinitely in SQLite.
+        source=sqlite3.connect(database_path,timeout=10)
+        source.backup(target)
         target.commit()
     except Exception:
         target.close()
+        if source is not None:
+            source.close()
         try: backup_path.unlink()
         except OSError: pass
         raise
     else:
         target.close()
+        source.close()
     return backup_path
 
 def _execute_script(conn: sqlite3.Connection, script: str):
@@ -69,6 +82,8 @@ def migrate(conn: sqlite3.Connection, database_path: str | Path, directory: Path
         rows={}
         if exists:
             rows={row[0]:row[1] for row in conn.execute("SELECT version,checksum FROM schema_version")}
+        if str(database_path) == ":memory:" and current < len(files):
+            raise MigrationError("file-backed SQLite database required for pre-migration backups")
         for version,name,path in files:
             raw=path.read_bytes()
             checksum=hashlib.sha256(raw).hexdigest()
@@ -76,11 +91,12 @@ def migrate(conn: sqlite3.Connection, database_path: str | Path, directory: Path
                 if rows.get(version) != checksum:
                     raise MigrationError(f"checksum mismatch for applied migration {version:04d}_{name}")
                 continue
-            # A durable SQLite online backup is made before *every* unapplied migration.
-            _backup(conn,Path(database_path),version)
             script=raw.decode("utf-8")
             try:
                 conn.execute("BEGIN IMMEDIATE")
+                # Acquire the write reservation before taking the snapshot, so
+                # concurrent writers cannot slip between backup and migration.
+                _backup(conn,Path(database_path),version)
                 _execute_script(conn,script)
                 applied_at=datetime.now(timezone.utc).isoformat(timespec="seconds")
                 conn.execute("INSERT INTO schema_version(version,name,checksum,applied_at) VALUES(?,?,?,?)",(version,name,checksum,applied_at))

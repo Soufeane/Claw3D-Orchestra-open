@@ -2,7 +2,7 @@
 
 ## Principes
 
-Un monolithe modulaire est retenu pour garder le cœur indépendant de l’interface et éviter les microservices. La première version utilise Python standard library et SQLite afin de s’exécuter localement sans dépendance externe. Le schéma est géré par des migrations SQL numérotées et additives (`CREATE TABLE IF NOT EXISTS`). Avant chaque migration, le runner crée une sauvegarde SQLite cohérente; tout échec bloque le démarrage. Aucun reset de base n’est fourni.
+Un monolithe modulaire est retenu pour garder le cœur indépendant de l’interface et éviter les microservices. La première version utilise Python standard library et SQLite afin de s’exécuter localement sans dépendance externe. Le schéma est géré par des migrations SQL numérotées et additives (`CREATE TABLE IF NOT EXISTS`). Pour chaque migration, le runner obtient d’abord un verrou d’écriture (`BEGIN IMMEDIATE`), puis sauvegarde via une connexion SQLite de lecture indépendante; cela bloque les écritures concurrentes entre le snapshot et l’application. Les backups fichier sont en mode `0600`; une restauration reste une opération explicite de l’opérateur. Les bases `:memory:` sont refusées pour une migration en attente, car elles ne permettent pas de backup durable. Tout échec bloque le démarrage. Aucun reset de base n’est fourni.
 
 ## Modules
 

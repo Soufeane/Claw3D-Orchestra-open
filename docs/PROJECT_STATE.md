@@ -1,6 +1,6 @@
 # État du projet
 
-Dernière mise à jour : 2026-11-06. Tranche T1 préparée sur `feature/t1-versioned-migrations`, tests réussis; non fusionnée et aucun changement sur `main`.
+Dernière mise à jour : 2026-11-07. T1 reste sur `feature/t1-versioned-migrations`, non fusionnée; `main` n’est pas modifiée.
 
 ## Livré dans cette tranche
 
@@ -18,6 +18,6 @@ Il n’y a pas de véritable routeur de modèles, d’exécution d’agent, d’
 
 ## Vérification de cette livraison
 
-Le runner versionné est livré dans cette tranche de travail : table `schema_version`, scripts SQL numérotés, sauvegarde SQLite avant chaque migration, checksum des migrations et arrêt du démarrage si une migration échoue. Le premier script est additif et compatible avec les bases produites par le schéma inline précédent.
+Le runner versionné utilise la table `schema_version`, les scripts SQL numérotés, les checksums et bloque le démarrage si une migration échoue. Il prend `BEGIN IMMEDIATE` avant la sauvegarde, qui est faite via une connexion de lecture indépendante afin d’empêcher les écritures concurrentes entre le snapshot et la migration. Les fichiers de sauvegarde sont créés avec le mode propriétaire `0600`. Le premier script est additif et compatible avec les bases produites par le schéma inline précédent.
 
-La suite de tests de cette tranche vérifie sur des fichiers temporaires la migration à froid, la préservation d’une ligne d’une base héritée, le contenu de la sauvegarde antérieure à migration, le rollback/échec startup et l’immutabilité des migrations déjà appliquées. Ne pas utiliser la base locale `data/claw3d.sqlite3` dans les tests.
+Le mode SQLite `:memory:` est explicitement refusé lorsqu’une migration est nécessaire, car le runner exige une sauvegarde fichier durable. La suite teste sur fichiers temporaires la migration à froid, les données héritées, la restauration effective d’une sauvegarde, le mode `0600`, le blocage d’une écriture concurrente, l’échec avec rollback, le refus mémoire et le checksum. Lors de la validation locale du 2026-11-07, `python3 -m unittest discover -s tests -v` a réussi avec 19 tests. Ce résultat local ne constitue pas un check GitHub; la PR n’a pas de CI attachée actuellement. Ne pas utiliser `data/claw3d.sqlite3` dans les tests.
